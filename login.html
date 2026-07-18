@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Log in — El Mundo Bakery</title>
+<link rel="shortcut icon" href="favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=93">
+</head>
+<body class="login-body">
+
+<div class="login-card" id="loginCard">
+  <img src="assets/logo.png" alt="El Mundo Bakery" class="login-logo">
+  <h1>El Mundo Bakery</h1>
+  <p class="tagline">Staff sign-in · Our goodness in everyday bite</p>
+
+  <p id="loginError" class="login-error" style="display:none;"></p>
+
+  <form id="loginForm" class="ledger-form" style="flex-direction:column;align-items:stretch;">
+    <label>Email
+      <input type="email" id="loginEmail" required autocomplete="username">
+    </label>
+    <label>Password
+      <span class="pw-wrap"><input type="password" id="loginPassword" required autocomplete="current-password"><button type="button" class="pw-toggle" aria-label="Show password" tabindex="-1"><svg class="eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><svg class="eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></button></span>
+    </label>
+    <button type="submit" class="btn btn-primary" id="loginBtn">Sign in</button>
+  </form>
+
+  <p style="margin-top:18px;font-size:0.78rem;"><a href="home.html" style="color:var(--char-soft);text-decoration:none;">← Back to elmundobakery homepage</a></p>
+</div>
+
+<div class="login-card" id="signedInPanel" style="display:none;">
+  <img src="assets/logo.png" alt="El Mundo Bakery" class="login-logo">
+  <h1>Already signed in</h1>
+  <p class="tagline">You're signed in as <strong id="signedInWho">your account</strong></p>
+  <div class="ledger-form" style="flex-direction:column;align-items:stretch;gap:10px;margin-top:16px;">
+    <button type="button" class="btn btn-primary" id="goDashboardBtn">Go to dashboard →</button>
+    <button type="button" class="btn btn-ghost" id="switchAccountBtn">Log out / switch account</button>
+  </div>
+  <p style="margin-top:18px;font-size:0.78rem;"><a href="home.html" style="color:var(--char-soft);text-decoration:none;">← Back to elmundobakery homepage</a></p>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js?v=93"></script>
+<script>
+  // If already signed in, DON'T silently jump to the dashboard — show a clear
+  // panel so the login page always looks like the login page. The user chooses
+  // to continue to the dashboard or log out and sign in as someone else.
+  auth.onAuthStateChanged((user) => {
+    const card = document.getElementById("loginCard");
+    const signedIn = document.getElementById("signedInPanel");
+    if (user) {
+      if (card) card.style.display = "none";
+      if (signedIn) {
+        signedIn.style.display = "block";
+        const who = document.getElementById("signedInWho");
+        if (who) who.textContent = user.email || "your account";
+      }
+    } else {
+      if (card) card.style.display = "block";
+      if (signedIn) signedIn.style.display = "none";
+    }
+  });
+
+  document.getElementById("loginForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("loginBtn");
+    const errEl = document.getElementById("loginError");
+    errEl.style.display = "none";
+    btn.disabled = true;
+    try {
+      await auth.signInWithEmailAndPassword(
+        document.getElementById("loginEmail").value.trim(),
+        document.getElementById("loginPassword").value
+      );
+      // Successful sign-in → go to the dashboard
+      window.location.href = "app.html";
+    } catch (err) {
+      errEl.textContent = "Couldn't sign in — check the email and password and try again.";
+      errEl.style.display = "block";
+      btn.disabled = false;
+    }
+  });
+
+  // Buttons on the "already signed in" panel
+  document.addEventListener("click", (e) => {
+    if (e.target.id === "goDashboardBtn") window.location.href = "app.html";
+    if (e.target.id === "switchAccountBtn") {
+      auth.signOut().then(() => { /* onAuthStateChanged shows the form again */ });
+    }
+  });
+</script>
+
+<script>
+/* Attach a show/hide eye toggle to every .pw-wrap on the page */
+(function () {
+  document.querySelectorAll(".pw-wrap").forEach(function (wrap) {
+    var input = wrap.querySelector("input");
+    var btn = wrap.querySelector(".pw-toggle");
+    if (!input || !btn) return;
+    btn.addEventListener("click", function () {
+      var show = input.type === "password";
+      input.type = show ? "text" : "password";
+      btn.classList.toggle("is-showing", show);
+      btn.setAttribute("aria-label", show ? "Hide password" : "Show password");
+      input.focus();
+    });
+  });
+})();
+</script>
+
+</body>
+</html>

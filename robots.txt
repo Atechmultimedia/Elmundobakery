@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+Allow: /home.html
+
+# Keep the private staff/management area out of search results
+Disallow: /index.html
+Disallow: /login.html
+Disallow: /setup.html
+Disallow: /staff.html
+Disallow: /shifts.html
+Disallow: /clock.html
+Disallow: /js/
+Disallow: /paystack-verify.php
+Disallow: /recipe-ai.php
+
+# Point crawlers to the sitemap (update the domain when you go live)
+Sitemap: https://YOUR-DOMAIN-HERE/sitemap.xml

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Staff Clock — El Mundo Bakery</title>
+<meta name="robots" content="noindex">
+<link rel="shortcut icon" href="favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root { --pine:#08300D; --gold:#F5A508; --gold-soft:#F7C15C; --cream:#EADBC8; --paper:#FBF8F2; --line:#E1D5BB; --oven:#B5432E; --herb:#4C6E3E; }
+* { box-sizing: border-box; }
+body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; background:var(--pine); font-family:"Work Sans",sans-serif; padding:20px; }
+.card { background:var(--paper); border-radius:14px; padding:34px 30px; max-width:400px; width:100%; text-align:center; box-shadow:0 16px 50px rgba(0,0,0,0.35); }
+.card img { width:74px; height:74px; object-fit:contain; margin-bottom:8px; }
+h1 { font-family:"Fraunces",serif; color:var(--pine); font-size:1.4rem; margin:0 0 2px; }
+.sub { font-family:"IBM Plex Mono",monospace; font-size:0.66rem; text-transform:uppercase; letter-spacing:0.12em; color:#6B5D4C; margin:0 0 22px; }
+.clock-time { font-family:"IBM Plex Mono",monospace; font-size:1.8rem; font-weight:600; color:var(--pine); margin-bottom:20px; }
+label { display:block; text-align:left; font-family:"IBM Plex Mono",monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.06em; color:#6B5D4C; margin-bottom:14px; }
+select, input { width:100%; margin-top:6px; font-family:"Work Sans",sans-serif; font-size:1.05rem; padding:13px 14px; border:1px solid var(--line); border-radius:8px; background:#fff; }
+input { text-align:center; font-family:"IBM Plex Mono",monospace; letter-spacing:0.5em; font-size:1.3rem; }
+select:focus, input:focus { outline:none; border-color:var(--gold); }
+button { width:100%; font-family:"IBM Plex Mono",monospace; font-size:0.95rem; text-transform:uppercase; letter-spacing:0.05em; font-weight:600; padding:15px; border:none; border-radius:8px; background:var(--gold); color:var(--pine); cursor:pointer; margin-top:4px; }
+button:active { transform:translateY(1px); }
+button:disabled { opacity:0.5; }
+.msg { display:none; margin-top:16px; padding:13px; border-radius:8px; font-size:0.92rem; font-weight:500; }
+.msg.ok { display:block; background:#DEE7D6; color:var(--herb); }
+.msg.bad { display:block; background:#F3DAD3; color:var(--oven); }
+.foot { margin-top:20px; font-size:0.7rem; color:#6B5D4C; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <img src="assets/logo.png" alt="El Mundo Bakery">
+  <h1>Staff Clock</h1>
+  <p class="sub">El Mundo Bakery · Powerland, Madina</p>
+  <div class="clock-time" id="liveTime">--:--</div>
+
+  <form id="clockForm">
+    <label>Your name
+      <select id="clockName" required><option value="">Loading staff…</option></select>
+    </label>
+    <label>Your PIN
+      <input type="password" id="clockPin" inputmode="numeric" maxlength="4" placeholder="••••" required>
+    </label>
+    <button type="submit" id="clockSubmit">Clock in / out</button>
+  </form>
+  <p class="msg" id="clockMsg"></p>
+  <p class="foot">Your punch is recorded instantly and paired into your attendance automatically.</p>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+firebase.initializeApp({
+  apiKey: "AIzaSyBjawN1MXFyPVTgY90dWNmdKMqvuX5bCvQ",
+  authDomain: "el-mundo-e976f.firebaseapp.com",
+  projectId: "el-mundo-e976f",
+  storageBucket: "el-mundo-e976f.firebasestorage.app",
+  messagingSenderId: "335945429486",
+  appId: "1:335945429486:web:69a225197451b2fb819eff"
+});
+const db = firebase.firestore();
+
+// live clock
+setInterval(() => {
+  document.getElementById("liveTime").textContent =
+    new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}, 1000);
+
+let pins = [];
+db.collection("clock_pins").get().then(snap => {
+  pins = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const sel = document.getElementById("clockName");
+  sel.innerHTML = '<option value="">— Select your name —</option>' +
+    pins.sort((a, b) => a.name.localeCompare(b.name))
+        .map(p => `<option value="${p.id}">${p.name}</option>`).join("");
+}).catch(() => {
+  showMsg("Could not load the staff list — check your connection.", true);
+});
+
+async function sha256Hex(text) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function showMsg(text, bad) {
+  const el = document.getElementById("clockMsg");
+  el.textContent = text;
+  el.className = "msg " + (bad ? "bad" : "ok");
+}
+
+document.getElementById("clockForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const id = document.getElementById("clockName").value;
+  const pin = document.getElementById("clockPin").value.trim();
+  const person = pins.find(p => p.id === id);
+  const btn = document.getElementById("clockSubmit");
+  if (!person) { showMsg("Please select your name.", true); return; }
+  btn.disabled = true;
+  try {
+    const hash = await sha256Hex(pin);
+    if (hash !== person.pin_hash) { showMsg("Wrong PIN — try again.", true); btn.disabled = false; return; }
+    await db.collection("clock_events").add({
+      employee_id: person.id,
+      employee_name: person.name,
+      punched_at: new Date().toISOString(),
+      source: "online"
+    });
+    showMsg(`✓ Punch recorded for ${person.name} at ${new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}. Have a good shift!`);
+    document.getElementById("clockPin").value = "";
+  } catch (err) {
+    showMsg("Could not record your punch — check your connection and try again.", true);
+  }
+  btn.disabled = false;
+});
+</script>
+</body>
+</html>
