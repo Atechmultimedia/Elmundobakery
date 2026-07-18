@@ -1,0 +1,241 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() { return request.auth != null; }
+    function role() {
+      return isSignedIn()
+        ? get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.role
+        : null;
+    }
+    function isAdmin() { return role() in ['master', 'admin', 'manager']; }
+    function isMaster() { return role() == 'master'; }
+    // Department managers — scoped authority in their own area
+    function canFinance() { return role() in ['master', 'admin', 'manager', 'finance', 'finance_manager']; }
+    function canHR() { return role() in ['master', 'admin', 'manager', 'hr_manager']; }
+    function canProduction() { return role() in ['master', 'admin', 'manager', 'baker', 'production_manager']; }
+    function canSales() { return role() in ['master', 'admin', 'manager', 'cashier', 'sales_manager']; }
+    function canMarketing() { return role() in ['master', 'admin', 'manager', 'marketing', 'sales_manager']; }
+
+    match /staff/{id} {
+      allow read: if isSignedIn();
+      // First-time setup / bootstrap: a signed-in user may create their OWN staff
+      // record (id == their uid) only if they don't already have one. Admins may
+      // create staff records for others (the Staff module). This is the only path
+      // to a first admin; once one exists, the self-create path is naturally closed
+      // because the app blocks it and admins control all further staff creation.
+      allow create: if isSignedIn() && (
+        (request.auth.uid == id
+          && !exists(/databases/$(database)/documents/staff/$(request.auth.uid)))
+        || isAdmin()
+      );
+      allow update: if isSignedIn() && (
+        (request.auth.uid == id
+          && !exists(/databases/$(database)/documents/staff/$(request.auth.uid)))
+        || isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /ingredients/{id} {
+      allow read: if isSignedIn();
+      allow write: if canProduction();
+    }
+
+    match /ingredient_batches/{id} {
+      allow read: if isSignedIn();
+      allow write: if canProduction();
+    }
+
+    match /stock_takes/{id} {
+      allow read: if isSignedIn();
+      allow create: if canProduction();
+      allow update, delete: if isAdmin();
+    }
+
+    match /products/{id} {
+      // Public read: the homepage order menu shows products to customers.
+      // Only name, price, sizes etc. are exposed — no sensitive data lives here.
+      allow read: if true;
+      allow create, delete: if role() in ['master', 'admin', 'manager', 'baker', 'production_manager'];
+      // 'update' is also needed by cashiers, since completing a sale
+      // deducts finished_stock_qty on the product document.
+      allow update: if role() in ['master', 'admin', 'manager', 'baker', 'production_manager', 'cashier', 'sales_manager'];
+    }
+
+    match /production_log/{id} {
+      allow read: if isSignedIn();
+      allow create: if canProduction();
+      allow update, delete: if isAdmin() || role() == 'production_manager';
+    }
+
+    match /sales/{id} {
+      allow read: if isSignedIn();
+      allow create: if canSales();
+      allow update, delete: if isAdmin() || role() == 'sales_manager';
+    }
+
+    match /deliveries/{id} {
+      allow read: if isSignedIn();
+      allow write: if canSales() || role() == 'delivery';
+    }
+
+    match /suppliers/{id} {
+      allow read: if isSignedIn();
+      allow write: if canFinance() || role() == 'production_manager';
+    }
+
+    match /purchase_orders/{id} {
+      allow read: if isSignedIn();
+      allow write: if canFinance() || role() == 'production_manager';
+    }
+
+    match /shifts/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /payroll_runs/{id} {
+      allow read: if isSignedIn();
+      allow write: if canFinance() || canHR();
+    }
+
+    match /app_settings/{id} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /staff_advances/{id} {
+      allow read: if isSignedIn();
+      allow write: if canFinance() || canHR();
+    }
+
+    match /expenses/{id} {
+      allow read: if isSignedIn();
+      allow write: if canFinance();
+    }
+
+    match /campaigns/{id} {
+      allow read: if isSignedIn();
+      allow write: if canMarketing();
+    }
+
+    match /social_posts/{id} {
+      allow read: if isSignedIn();
+      allow write: if canMarketing();
+    }
+
+    match /assets_register/{id} {
+      allow read: if isSignedIn();
+      allow write: if canFinance();
+    }
+
+    match /maintenance_log/{id} {
+      allow read: if isSignedIn();
+      allow write: if canProduction() || canFinance();
+    }
+
+    match /vendor_debts/{id} {
+      allow read: if isSignedIn();
+      allow write: if canFinance() || role() == 'cashier';
+    }
+
+    match /waste_log/{id} {
+      allow read: if isSignedIn();
+      allow write: if canProduction() || role() == 'cashier';
+    }
+
+    match /cash_recon/{id} {
+      allow read: if isSignedIn();
+      allow write: if canFinance() || role() == 'cashier';
+    }
+
+    match /transfers/{id} {
+      allow read: if canFinance();
+      allow write: if canFinance();
+    }
+
+    match /equity_records/{id} {
+      allow read, write: if canFinance();
+    }
+
+    match /invoices/{id} {
+      allow read: if isSignedIn();
+      allow write: if canFinance() || canSales();
+    }
+
+    match /crm_leads/{id} {
+      allow read: if isSignedIn();
+      allow write: if canSales() || canMarketing();
+    }
+
+    // Public website order form writes here (create only, no reads)
+    match /online_orders/{id} {
+      allow create: if true;
+      allow read, update, delete: if isSignedIn();
+    }
+
+    // Stock movement history — written by production, POs, and manual adjustments
+    match /stock_movements/{id} {
+      allow read, create: if isSignedIn();
+      allow update: if false;                 // history is never edited
+      allow delete: if isMaster();            // only the master admin, for cleanup/reset
+    }
+
+    // Customers & loyalty
+    match /customers/{id} {
+      allow read: if isSignedIn();
+      allow write: if canSales() || canMarketing();
+    }
+
+    // Employee HR records — management writes; signed-in staff can read
+    // names (needed for kiosk clock-in), sensitive fields stay in the UI for managers only
+    match /employees/{id} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || canHR();
+    }
+
+    // Monthly production plans
+    match /production_plans/{id} {
+      allow read: if isSignedIn();
+      allow write: if canProduction() || canFinance();
+    }
+
+    // Online clock: names + HASHED pins only, publicly readable by clock.html
+    match /clock_pins/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Online clock punches: anyone can create (validated by PIN hash in the page),
+    // signed-in staff read & clear them when merging into attendance
+    match /clock_events/{id} {
+      allow create: if true;
+      allow read: if true;
+      allow delete: if isSignedIn();
+      allow update: if false;
+    }
+
+    // Employee documents (IDs, photos, certificates) — management only
+    match /staff_documents/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // Audit trail: anyone signed-in appends, only admins read, nobody edits
+    match /audit_log/{id} {
+      allow create: if isSignedIn();
+      allow read: if isAdmin();
+      allow update: if false;              // logs are never edited
+      allow delete: if isMaster();         // only the master admin can clear logs
+    }
+
+    // General staff registers: signed-in staff can read & write
+    match /{collection}/{id} {
+      allow read, write: if isSignedIn()
+        && collection in ['esg_log', 'signatures', 'timesheets', 'tickets',
+                          'quality_checks', 'fleet_vehicles', 'attendance', 'timeoff',
+                          'candidates', 'appraisals', 'approvals', 'documents',
+                          'sms_campaigns', 'email_campaigns'];
+    }
+  }
+}
