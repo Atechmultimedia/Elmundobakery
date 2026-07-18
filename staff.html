@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Staff Portal — El Mundo Bakery</title>
+<meta name="robots" content="noindex">
+<link rel="shortcut icon" href="favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root { --pine:#08300D; --gold:#F5A508; --gold-soft:#F7C15C; --cream:#EADBC8; --paper:#FBF8F2; --line:#E1D5BB; --oven:#B5432E; --herb:#4C6E3E; }
+* { box-sizing: border-box; }
+body { margin:0; min-height:100vh; display:flex; align-items:flex-start; justify-content:center; background:var(--pine); font-family:"Work Sans",sans-serif; padding:24px 16px; }
+.card { background:var(--paper); border-radius:14px; padding:30px 26px; max-width:460px; width:100%; box-shadow:0 16px 50px rgba(0,0,0,0.35); }
+.head { text-align:center; margin-bottom:20px; }
+.head img { width:66px; height:66px; object-fit:contain; }
+h1 { font-family:"Fraunces",serif; color:var(--pine); font-size:1.35rem; margin:6px 0 2px; }
+.sub { font-family:"IBM Plex Mono",monospace; font-size:0.64rem; text-transform:uppercase; letter-spacing:0.12em; color:#6B5D4C; margin:0; }
+.clock-time { text-align:center; font-family:"IBM Plex Mono",monospace; font-size:1.7rem; font-weight:600; color:var(--pine); margin:6px 0 18px; }
+label { display:block; text-align:left; font-family:"IBM Plex Mono",monospace; font-size:0.66rem; text-transform:uppercase; letter-spacing:0.06em; color:#6B5D4C; margin-bottom:14px; }
+select, input { width:100%; margin-top:6px; font-family:"Work Sans",sans-serif; font-size:1.05rem; padding:12px 14px; border:1px solid var(--line); border-radius:8px; background:#fff; }
+input.pin { text-align:center; font-family:"IBM Plex Mono",monospace; letter-spacing:0.5em; font-size:1.2rem; }
+select:focus, input:focus { outline:none; border-color:var(--gold); }
+button { width:100%; font-family:"IBM Plex Mono",monospace; font-size:0.92rem; text-transform:uppercase; letter-spacing:0.05em; font-weight:600; padding:14px; border:none; border-radius:8px; background:var(--gold); color:var(--pine); cursor:pointer; }
+button:active { transform:translateY(1px); }
+button:disabled { opacity:0.5; }
+button.ghost { background:transparent; border:1px solid var(--line); color:var(--pine); }
+.msg { display:none; margin-top:14px; padding:12px; border-radius:8px; font-size:0.9rem; font-weight:500; }
+.msg.ok { display:block; background:#DEE7D6; color:var(--herb); }
+.msg.bad { display:block; background:#F3DAD3; color:var(--oven); }
+
+.portal { display:none; }
+.hello { text-align:center; margin-bottom:16px; }
+.hello h2 { font-family:"Fraunces",serif; color:var(--pine); margin:0; font-size:1.3rem; }
+.hello .status { font-size:0.85rem; color:#6B5D4C; margin-top:3px; }
+.tabs { display:flex; gap:8px; margin-bottom:16px; }
+.tabs button { background:var(--cream); color:var(--pine); }
+.tabs button.active { background:var(--pine); color:var(--gold-soft); }
+.tab-panel { display:none; }
+.tab-panel.active { display:block; }
+.clock-status { text-align:center; padding:16px; background:#fff; border:1px solid var(--line); border-radius:9px; margin-bottom:14px; font-size:0.95rem; }
+.clock-status strong { color:var(--pine); }
+.shift-day { display:flex; justify-content:space-between; align-items:center; padding:12px 15px; border:1px solid var(--line); border-radius:9px; margin-bottom:9px; background:#fff; }
+.shift-day.today { border-color:var(--gold); background:#FFF9EC; }
+.shift-day .day { font-weight:600; color:var(--pine); }
+.shift-day .day small { display:block; font-weight:400; font-size:0.72rem; color:#6B5D4C; }
+.shift-day .time { font-family:"IBM Plex Mono",monospace; font-size:0.92rem; color:var(--herb); font-weight:600; }
+.empty { text-align:center; color:#6B5D4C; padding:18px; font-size:0.92rem; }
+.logout { display:block; text-align:center; margin-top:18px; font-size:0.8rem; color:#6B5D4C; cursor:pointer; text-decoration:underline; }
+.home-link { display:block; text-align:center; margin-top:12px; font-size:0.78rem; color:#6B5D4C; text-decoration:none; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="head">
+    <img src="assets/logo.png" alt="El Mundo Bakery">
+    <h1>Staff Portal</h1>
+    <p class="sub">El Mundo Bakery · Powerland, Madina</p>
+  </div>
+  <div class="clock-time" id="liveTime">--:--</div>
+
+  <!-- LOGIN -->
+  <form id="loginForm">
+    <label>Your name
+      <select id="empName" required><option value="">Loading staff…</option></select>
+    </label>
+    <label>Your PIN
+      <input type="password" class="pin" id="empPin" inputmode="numeric" maxlength="4" placeholder="••••" required>
+    </label>
+    <button type="submit" id="loginBtn">Enter</button>
+    <p class="msg" id="loginMsg"></p>
+  </form>
+
+  <!-- PORTAL -->
+  <div class="portal" id="portal">
+    <div class="hello">
+      <h2 id="helloName">Hi</h2>
+      <div class="status" id="clockLine"></div>
+    </div>
+
+    <div class="tabs">
+      <button data-tab="clock" class="active">Clock In / Out</button>
+      <button data-tab="shifts">My Shifts</button>
+    </div>
+
+    <div class="tab-panel active" id="tab-clock">
+      <div class="clock-status" id="clockStatus"></div>
+      <button id="clockBtn">Clock in</button>
+      <p class="msg" id="clockMsg"></p>
+    </div>
+
+    <div class="tab-panel" id="tab-shifts">
+      <div id="shiftList"></div>
+    </div>
+
+    <span class="logout" id="logoutBtn">← Log out</span>
+  </div>
+
+  <a class="home-link" href="index.html">← Back to homepage</a>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+firebase.initializeApp({
+  apiKey: "AIzaSyBjawN1MXFyPVTgY90dWNmdKMqvuX5bCvQ",
+  authDomain: "el-mundo-e976f.firebaseapp.com",
+  projectId: "el-mundo-e976f",
+  storageBucket: "el-mundo-e976f.firebasestorage.app",
+  messagingSenderId: "335945429486",
+  appId: "1:335945429486:web:69a225197451b2fb819eff"
+});
+const db = firebase.firestore();
+
+setInterval(() => {
+  document.getElementById("liveTime").textContent =
+    new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}, 1000);
+
+let pins = [];
+let me = null; // { id, name }
+
+db.collection("clock_pins").get().then(snap => {
+  pins = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const sel = document.getElementById("empName");
+  sel.innerHTML = '<option value="">— Select your name —</option>' +
+    pins.sort((a, b) => a.name.localeCompare(b.name)).map(p => `<option value="${p.id}">${p.name}</option>`).join("");
+}).catch(() => showMsg("loginMsg", "Could not load staff list — check your connection.", true));
+
+async function sha256Hex(text) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+function showMsg(id, text, bad) {
+  const el = document.getElementById(id);
+  el.textContent = text; el.className = "msg " + (bad ? "bad" : "ok");
+}
+function clearMsg(id) { document.getElementById(id).className = "msg"; }
+
+/* ---- login ---- */
+document.getElementById("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  clearMsg("loginMsg");
+  const id = document.getElementById("empName").value;
+  const pin = document.getElementById("empPin").value.trim();
+  const person = pins.find(p => p.id === id);
+  const btn = document.getElementById("loginBtn");
+  if (!person) { showMsg("loginMsg", "Please select your name.", true); return; }
+  btn.disabled = true;
+  try {
+    const hash = await sha256Hex(pin);
+    if (hash !== person.pin_hash) { showMsg("loginMsg", "Wrong PIN — try again.", true); btn.disabled = false; return; }
+    me = { id: person.id, name: person.name };
+    enterPortal();
+  } catch (err) {
+    showMsg("loginMsg", "Something went wrong — try again.", true);
+  }
+  btn.disabled = false;
+});
+
+async function enterPortal() {
+  document.getElementById("loginForm").style.display = "none";
+  document.getElementById("portal").style.display = "block";
+  document.getElementById("helloName").textContent = "Hi " + me.name.split(" ")[0];
+  await refreshClock();
+  await loadShifts();
+}
+
+/* ---- tabs ---- */
+document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll(".tabs button").forEach(x => x.classList.remove("active"));
+  document.querySelectorAll(".tab-panel").forEach(x => x.classList.remove("active"));
+  b.classList.add("active");
+  document.getElementById("tab-" + b.dataset.tab).classList.add("active");
+}));
+
+/* ---- clock ---- */
+async function refreshClock() {
+  // Find whether this person has an unpaired punch today (odd number of punches = currently in)
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const snap = await db.collection("clock_events")
+    .where("employee_id", "==", me.id).get();
+  const todays = snap.docs.map(d => d.data()).filter(e => (e.punched_at || "").slice(0, 10) === todayIso);
+  const isIn = todays.length % 2 === 1;
+  const statusEl = document.getElementById("clockStatus");
+  const btn = document.getElementById("clockBtn");
+  if (isIn) {
+    const lastIn = todays.sort((a, b) => b.punched_at.localeCompare(a.punched_at))[0];
+    statusEl.innerHTML = `You're currently <strong>clocked in</strong>` +
+      (lastIn ? ` since ${new Date(lastIn.punched_at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}` : "");
+    btn.textContent = "Clock out";
+    btn.dataset.mode = "out";
+    document.getElementById("clockLine").textContent = "On shift";
+  } else {
+    statusEl.innerHTML = todays.length ? `Last punch today recorded. You're <strong>clocked out</strong>.` : `You haven't clocked in today yet.`;
+    btn.textContent = "Clock in";
+    btn.dataset.mode = "in";
+    document.getElementById("clockLine").textContent = "Not on shift";
+  }
+}
+
+document.getElementById("clockBtn").addEventListener("click", async () => {
+  const btn = document.getElementById("clockBtn");
+  btn.disabled = true;
+  clearMsg("clockMsg");
+  try {
+    await db.collection("clock_events").add({
+      employee_id: me.id, employee_name: me.name,
+      punched_at: new Date().toISOString(), source: "portal"
+    });
+    const mode = btn.dataset.mode;
+    showMsg("clockMsg", `✓ Clocked ${mode === "out" ? "out" : "in"} at ${new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}. ${mode === "out" ? "See you next time!" : "Have a good shift!"}`);
+    await refreshClock();
+  } catch (err) {
+    showMsg("clockMsg", "Could not record — check your connection.", true);
+  }
+  btn.disabled = false;
+});
+
+/* ---- shifts ---- */
+async function loadShifts() {
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const list = document.getElementById("shiftList");
+  try {
+    const snap = await db.collection("shifts").where("staff_id", "==", me.id).get();
+    const shifts = snap.docs.map(d => d.data())
+      .filter(s => s.date >= todayIso)
+      .sort((a, b) => (a.date + a.start_time).localeCompare(b.date + b.start_time))
+      .slice(0, 14);
+    if (!shifts.length) {
+      list.innerHTML = `<p class="empty">No upcoming shifts scheduled. Check back later or ask your manager.</p>`;
+      return;
+    }
+    list.innerHTML = shifts.map(s => {
+      const d = new Date(s.date);
+      const isToday = s.date === todayIso;
+      return `
+        <div class="shift-day ${isToday ? "today" : ""}">
+          <span class="day">${d.toLocaleDateString(undefined, { weekday: "long" })}
+            <small>${d.toLocaleDateString(undefined, { day: "numeric", month: "long" })}${isToday ? " · Today" : ""}</small>
+          </span>
+          <span class="time">${s.start_time} – ${s.end_time}</span>
+        </div>`;
+    }).join("");
+  } catch (err) {
+    list.innerHTML = `<p class="empty">Couldn't load shifts — check your connection.</p>`;
+  }
+}
+
+/* ---- logout ---- */
+document.getElementById("logoutBtn").addEventListener("click", () => {
+  me = null;
+  document.getElementById("portal").style.display = "none";
+  document.getElementById("loginForm").style.display = "block";
+  document.getElementById("empPin").value = "";
+  clearMsg("loginMsg"); clearMsg("clockMsg");
+});
+</script>
+</body>
+</html>
